@@ -1,0 +1,25 @@
+[general]
+name=OrthoCAD
+about=This plugin is a revolution!
+category=Vector
+hasProcessingProvider=True
+description=Extends QGIS with revolutionary features that every single GIS end-users was expected (or not)!
+icon=resources/images/default_icon.png
+tags=topic1,topic2
+
+# credits and contact
+author=Firstname LASTNAME
+email=qgis@company.com
+homepage=https://gitlab.com/Company/orthocad/
+repository=https://gitlab.com/Company/orthocad/
+tracker=https://gitlab.com/Company/orthocad//issues
+
+# experimental flag
+deprecated=False
+experimental=True
+qgisMinimumVersion=3.28
+qgisMaximumVersion=3.99
+
+# versioning
+version=0.1.0
+changelog=
