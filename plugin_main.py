@@ -2,6 +2,7 @@ import math
 from pathlib import Path
 from functools import partial
 from qgis.PyQt.QtCore import Qt
+
 import numpy as np
 from qgis.core import (
     QgsApplication, 
@@ -14,10 +15,11 @@ from qgis.core import (
     QgsSnappingUtils,
     QgsProject
 )
+from .resources import *
 from qgis.gui import QgisInterface, QgsMapTool, QgsRubberBand, QgsVertexMarker, QgsMapToolEmitPoint
-from qgis.PyQt.QtCore import QCoreApplication, QLocale, QTranslator, QUrl
+from qgis.PyQt.QtCore import QCoreApplication, QLocale, QTranslator, QUrl, pyqtSignal, QObject
 from qgis.PyQt.QtGui import QColor, QCursor, QDesktopServices, QIcon, QKeyEvent
-from qgis.PyQt.QtWidgets import QAction, QMessageBox
+from qgis.PyQt.QtWidgets import QAction, QMessageBox, QToolBar
 
 ########### OrthocadPlugin Class ###############
 
@@ -25,6 +27,7 @@ class OrthocadPlugin:
     def __init__(self, iface: QgisInterface):
         self.iface = iface
         self.tool = None
+        self.setup_signals()
         
         self.locale = QgsSettings().value("locale/userLocale", QLocale().name())[0:2]
         locale_path = Path(__file__).parent / "i18n" / f"orthocad_{self.locale}.qm"
@@ -34,21 +37,38 @@ class OrthocadPlugin:
             QCoreApplication.installTranslator(self.translator)
 
     def initGui(self):
+        self.toolbar = self.iface.addToolBar("My Toolbar")
         self.action_perpendicular = QAction(
-            QIcon(),  # Add a suitable icon here
-            self.tr("Perpendicular Polygon Tool"),
+            QIcon(':/plugins/Qorthocad/icons/orthotool.svg'),  # Add a suitable icon here
+            'Otho Tool',
             self.iface.mainWindow(),
         )
         self.action_perpendicular.triggered.connect(self.togglePerpendicularTool)
-        self.iface.addPluginToMenu("Orthocad", self.action_perpendicular)
+        self.toolbar.addAction(self.action_perpendicular)
+        self.action_perpendicular.setCheckable(True)
 
     def togglePerpendicularTool(self):
         if self.tool:
             self.iface.mapCanvas().unsetMapTool(self.tool)
             self.tool = None
+            self.action_perpendicular.setChecked(False)
         else:
             self.tool = PerpendicularPolygonTool(self.iface.mapCanvas(), self.iface)
             self.iface.mapCanvas().setMapTool(self.tool)
+            self.action_perpendicular.setChecked(True)
+        
+    def setup_signals(self):
+        self.iface.mapCanvas().mapToolSet.connect(self.on_map_tool_set)
+    
+    def on_map_tool_set(self, tool):
+        print(tool)
+        if tool != self.tool:
+            self.tool = None
+            self.action_perpendicular.setChecked(False)
+
+        
+    
+
 
     def tr(self, message: str) -> str:
         return QCoreApplication.translate(self.__class__.__name__, message)
@@ -58,7 +78,7 @@ class OrthocadPlugin:
         if self.tool:
             self.iface.mapCanvas().unsetMapTool(self.tool)
             self.tool.ClearSketch()
-        
+
 
 # ########## PerpendicularPolygonTool Class ###############
 
@@ -74,19 +94,24 @@ class PerpendicularPolygonTool(QgsMapTool):
         self.last_line = None
         self.perpendicular_start = None
         self.drawing = False  # Flag to indicate if drawing is active
+        
 
         # snap marker
         self.snap_mark = QgsVertexMarker(self.canvas)
         self.snap_mark.setColor(QColor(255, 255, 0))
         self.snap_mark.setPenWidth(2)
-        self.snap_mark.setIconType(QgsVertexMarker.ICON_BOX)
         self.snap_mark.setIconSize(10)
         
+
     def canvasMoveEvent(self, event):
         coord = self.toMapCoordinates(event.pos())
         self.snap_mark.hide()
         self.snapPoint = False
-        self.snapPoint = self.checkSnapToPoint(event.pos())
+        self.snapPoint = self.checkSnapToGeometry(event.pos())
+        if self.snapPoint[-1] == 0:
+            self.snap_mark.setIconType(QgsVertexMarker.ICON_BOX)
+        elif self.snapPoint[-1] == 1:
+            self.snap_mark.setIconType(QgsVertexMarker.ICON_INVERTED_TRIANGLE)
 
         if self.snapPoint[0]:
             self.snap_mark.setCenter(self.snapPoint[1])
@@ -99,6 +124,7 @@ class PerpendicularPolygonTool(QgsMapTool):
         elif self.drawing and self.last_line:
             new_point = self.snapToPerpendicular(coord)
             self.updateRubberBand(self.vertices + [new_point])
+
 
     def get_vector(self, p1, p2):
         # Координати точок
@@ -129,7 +155,6 @@ class PerpendicularPolygonTool(QgsMapTool):
     def line_intersection(self, p1, p2, q1, q2):
         """
         Знаходить точку перетину двох ліній, заданих двома відрізками.
-        
         :param p1: Перша точка першого відрізка (x1, y1)
         :param p2: Друга точка першого відрізка (x2, y2)
         :param q1: Перша точка другого відрізка (x3, y3)
@@ -185,31 +210,44 @@ class PerpendicularPolygonTool(QgsMapTool):
                 self.last_line = (self.vertices[-2], self.vertices[-1])
                 self.drawing = True  # Continue drawing
         elif event.button() == 2:
+            if len(self.vertices) != 1:
                 self.last_line = (self.vertices[-2], self.vertices[-1])
                 self.createPerpendicularPolygon()
                 self.drawing = False  # Continue drawing
+            else: 
+                QMessageBox.critical(self.iface.mainWindow(), "Error", "Щоб зберегти об'єкт створіть скетч")
             
     
 
 
-    def checkSnapToPoint(self, point):
+    def checkSnapToGeometry(self, point):
         snapped = False
         snap_point = self.toMapCoordinates(point)
         snapper = self.canvas.snappingUtils()
         snap_match = snapper.snapToMap(point)
-        
+        snap_type = None
+        # Перевірка прив'язки до вершин
         if snap_match.hasVertex():
             snap_point = snap_match.point()
             snapped = True
-        else:
-            # Check snapping to own points
+            snap_type = 0
+
+        # Перевірка прив'язки до власних точок
+        if not snapped:
             for vertex in self.vertices:
-                if snap_point.distance(vertex) < self.canvas.mapUnitsPerPixel() * 10:  # Adjust threshold as needed
+                if snap_point.distance(vertex) < self.canvas.mapUnitsPerPixel() * 10:  # Змінити поріг при необхідності
                     snap_point = vertex
                     snapped = True
                     break
-        
-        return snapped, snap_point
+
+        # Перевірка прив'язки до ліній
+        if not snapped and snap_match.hasEdge():
+            edge_point = snap_match.point()
+            if snap_point.distance(edge_point) < self.canvas.mapUnitsPerPixel() * 10:  # Змінити поріг при необхідності
+                snap_point = edge_point
+                snapped = True
+                snap_type = 1
+        return snapped, snap_point, snap_type
     
     def keyPressEvent(self, event: QKeyEvent):
         if event.key() == 67 or event.key() == 67:
@@ -266,15 +304,21 @@ class PerpendicularPolygonTool(QgsMapTool):
         self.vertices = []
         self.rubber_band.reset()  # Clear the rubber band
         self.drawing = False  # Ensure drawing is stopped
+        self.snap_mark.hide()
+        self.snapPoint = False
+    
+        
 
     def createPerpendicularPolygon(self):
-        if len(self.vertices) < 2:
+        if len(self.vertices) <= 2:
             QMessageBox.critical(self.iface.mainWindow(), "Error", "Please define at least two points.")
+            self.ClearSketch()
             return
 
         layer = self.iface.activeLayer()
         if not layer or layer.geometryType() != QgsWkbTypes.PolygonGeometry:
             QMessageBox.critical(self.iface.mainWindow(), "Error", "Please select a polygon layer to sketch.")
+            self.ClearSketch()
             return
 
         layer.startEditing()
