@@ -13,20 +13,20 @@ from qgis.core import (
     QgsFeature, 
     QgsVectorLayer,
     QgsSnappingUtils,
-    QgsProject
+    QgsProject,
 )
 from .resources import *
-from qgis.gui import QgisInterface, QgsMapTool, QgsRubberBand, QgsVertexMarker, QgsMapToolEmitPoint
+from qgis.gui import QgisInterface, QgsMapTool, QgsRubberBand, QgsVertexMarker, QgsMapToolEmitPoint, QgsMapMouseEvent
 from qgis.PyQt.QtCore import QCoreApplication, QLocale, QTranslator, QUrl, pyqtSignal, QObject
 from qgis.PyQt.QtGui import QColor, QCursor, QDesktopServices, QIcon, QKeyEvent
-from qgis.PyQt.QtWidgets import QAction, QMessageBox, QToolBar
+from qgis.PyQt.QtWidgets import QAction, QMessageBox, QToolBar, QApplication
 
 ########### OrthocadPlugin Class ###############
 
 class OrthocadPlugin:
     def __init__(self, iface: QgisInterface):
         self.iface = iface
-        self.tool = None
+        self.tool = PerpendicularPolygonTool(self.iface.mapCanvas(), self.iface)
         self.setup_signals()
         
         self.locale = QgsSettings().value("locale/userLocale", QLocale().name())[0:2]
@@ -37,7 +37,7 @@ class OrthocadPlugin:
             QCoreApplication.installTranslator(self.translator)
 
     def initGui(self):
-        self.toolbar = self.iface.addToolBar("My Toolbar")
+        self.toolbar = self.iface.addToolBar("OrthoCAD-Tool")
         self.action_perpendicular = QAction(
             QIcon(':/plugins/Qorthocad/icons/orthotool.svg'),  # Add a suitable icon here
             'Otho Tool',
@@ -57,18 +57,14 @@ class OrthocadPlugin:
             self.iface.mapCanvas().setMapTool(self.tool)
             self.action_perpendicular.setChecked(True)
         
+        
     def setup_signals(self):
         self.iface.mapCanvas().mapToolSet.connect(self.on_map_tool_set)
     
     def on_map_tool_set(self, tool):
-        print(tool)
         if tool != self.tool:
             self.tool = None
             self.action_perpendicular.setChecked(False)
-
-        
-    
-
 
     def tr(self, message: str) -> str:
         return QCoreApplication.translate(self.__class__.__name__, message)
@@ -77,7 +73,6 @@ class OrthocadPlugin:
         self.iface.removePluginMenu("Orthocad", self.action_perpendicular)
         if self.tool:
             self.iface.mapCanvas().unsetMapTool(self.tool)
-            self.tool.ClearSketch()
 
 
 # ########## PerpendicularPolygonTool Class ###############
@@ -124,6 +119,8 @@ class PerpendicularPolygonTool(QgsMapTool):
         elif self.drawing and self.last_line:
             new_point = self.snapToPerpendicular(coord)
             self.updateRubberBand(self.vertices + [new_point])
+
+
 
 
     def get_vector(self, p1, p2):
@@ -249,22 +246,36 @@ class PerpendicularPolygonTool(QgsMapTool):
                 snap_type = 1
         return snapped, snap_point, snap_type
     
+    def cursor_position(self):
+        global_pos = QCursor.pos()
+        screen_pos = self.canvas.mapFromGlobal(global_pos)
+        map_point = self.canvas.getCoordinateTransform().toMapCoordinates(screen_pos)
+        return map_point
+    
     def keyPressEvent(self, event: QKeyEvent):
-        if event.key() == 67 or event.key() == 67:
-            if len(self.vertices) >= 3:
-                ort_1 = self.get_vector((self.vertices[-1].x(), self.vertices[-1].y()), (self.vertices[-2].x(), self.vertices[-2].y()))
-                ort_2 = self.get_vector((self.vertices[0].x(), self.vertices[0].y()), (self.vertices[1].x(), self.vertices[1].y()))
-                point = self.line_intersection((self.vertices[-1].x(), self.vertices[-1].y()), ort_1[0], (self.vertices[0].x(), self.vertices[0].y()), ort_2[0])
-                if point == False:
-                    self.last_line = (self.vertices[-2], self.vertices[-1])
-                    self.createPerpendicularPolygon()
-                    self.drawing = False  # Continue drawing
-                else: 
-                    qgs_point = QgsPointXY(point[0], point[1])
-                    self.vertices.append(self.snapToPerpendicular(qgs_point))
-                    self.createPerpendicularPolygon()
-                    self.drawing = False
-  
+        def calc_point():
+            ort_1 = self.get_vector((self.vertices[-1].x(), self.vertices[-1].y()), (self.vertices[-2].x(), self.vertices[-2].y()))
+            ort_2 = self.get_vector((self.vertices[0].x(), self.vertices[0].y()), (self.vertices[1].x(), self.vertices[1].y()))
+            point = self.line_intersection((self.vertices[-1].x(), self.vertices[-1].y()), ort_1[0], (self.vertices[0].x(), self.vertices[0].y()), ort_2[0])
+            return point
+        def add_mouse_coord():
+            beforepoint = self.snapToPerpendicular(self.cursor_position())
+            self.vertices.append(beforepoint)
+            self.last_line = (self.vertices[-2], self.vertices[-1])
+        def create_point(point):
+            qgs_point = QgsPointXY(point[0], point[1])
+            self.vertices.append(self.snapToPerpendicular(qgs_point))
+            self.createPerpendicularPolygon()
+            self.drawing = False
+        if (event.key() == 67 or event.key() == 1057) and len(self.vertices) > 1: 
+            point = calc_point()
+            if len(self.vertices) > 2 and point != False: 
+                create_point(point)
+            elif len(self.vertices) == 2 or point == False:
+                    add_mouse_coord()
+                    point = calc_point()
+                    create_point(point)
+
         if event.key() == Qt.Key_Escape:
             self.vertices = []
             self.rubber_band.reset()
@@ -300,15 +311,11 @@ class PerpendicularPolygonTool(QgsMapTool):
             self.rubber_band.setToGeometry(QgsGeometry.fromPolygonXY([temp_vertices]), None)
     
     def ClearSketch(self):
-        # Clear the sketch
         self.vertices = []
         self.rubber_band.reset()  # Clear the rubber band
         self.drawing = False  # Ensure drawing is stopped
-        self.snap_mark.hide()
-        self.snapPoint = False
     
-        
-
+    
     def createPerpendicularPolygon(self):
         if len(self.vertices) <= 2:
             QMessageBox.critical(self.iface.mainWindow(), "Error", "Please define at least two points.")
