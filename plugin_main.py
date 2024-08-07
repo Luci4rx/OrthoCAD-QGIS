@@ -1,5 +1,4 @@
 from pathlib import Path
-from qgis.PyQt.QtCore import Qt
 from qgis.core import (
     QgsSettings, 
 )
@@ -7,12 +6,10 @@ from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import QCoreApplication, QLocale, QTranslator
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction
+from .tools import PerpendicularPolygonTool
 from .resources import *
 
-from .tools import PerpendicularPolygonTool
-
 ########### Orthocad Plugin Main Class ###############
-
 class OrthocadPlugin:
     def __init__(self, iface: QgisInterface):
         self.iface = iface
@@ -33,12 +30,12 @@ class OrthocadPlugin:
             'Otho Tool',
             self.iface.mainWindow(),
         )
-        self.action_perpendicular.triggered.connect(self.togglePerpendicularTool)
+        self.action_perpendicular.triggered.connect(self.toggle_ortho_tool)
         self.toolbar.addAction(self.action_perpendicular)
         self.action_perpendicular.setCheckable(True)
       
 
-    def togglePerpendicularTool(self):
+    def toggle_ortho_tool(self):
         if self.tool:
             self.tool.ClearSketch()
             self.iface.mapCanvas().unsetMapTool(self.tool)
@@ -48,7 +45,6 @@ class OrthocadPlugin:
             self.tool = PerpendicularPolygonTool(self.iface.mapCanvas(), self.iface)
             self.iface.mapCanvas().setMapTool(self.tool)
             self.action_perpendicular.setChecked(True)
-        
         
     def setup_signals(self):
         self.iface.mapCanvas().mapToolSet.connect(self.on_map_tool_set)
