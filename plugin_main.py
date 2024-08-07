@@ -37,7 +37,7 @@ class OrthocadPlugin:
 
     def toggle_ortho_tool(self):
         if self.tool:
-            self.tool.ClearSketch()
+            self.tool.sketch.clear_sketch()
             self.iface.mapCanvas().unsetMapTool(self.tool)
             self.tool = None
             self.action_perpendicular.setChecked(False)
@@ -59,7 +59,7 @@ class OrthocadPlugin:
 
     def unload(self):
         self.tool = PerpendicularPolygonTool(self.iface.mapCanvas(), self.iface)
-        self.tool.ClearSketch()
+        self.tool.sketch.clear_sketch()
         self.iface.removePluginMenu("Orthocad", self.action_perpendicular)
         if self.tool:
             self.iface.mapCanvas().unsetMapTool(self.tool)
