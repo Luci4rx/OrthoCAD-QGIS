@@ -1,18 +1,16 @@
 import math
 from qgis.PyQt.QtCore import Qt
 from qgis.core import (
-    QgsGeometry,
-    QgsPointXY, 
-    QgsWkbTypes, 
-    QgsFeature
+    QgsPointXY
 )
 from qgis.gui import QgsMapTool, QgsVertexMarker, QgsMapToolEmitPoint
-from qgis.PyQt.QtGui import QColor, QKeyEvent
+from qgis.PyQt.QtGui import QKeyEvent
 from qgis.PyQt.QtWidgets import QMessageBox
 
 from .MathDef import Vector, cursor_position
 from .tSketch import SketchPolygonShape
 from .tSnap import SnapTool
+
 class PerpendicularPolygonTool(QgsMapTool):
     def __init__(self, canvas, iface):
         QgsMapToolEmitPoint.__init__(self, canvas)
@@ -66,7 +64,7 @@ class PerpendicularPolygonTool(QgsMapTool):
         elif event.button() == 2:
             if len(self.sketch.vertices) > 1:
                 self.sketch.last_line = (self.sketch.vertices[-2], self.sketch.vertices[-1])
-                self.createPerpendicularPolygon()
+                self.sketch.copmlate_polygon(self.sketch.vertices)
                 self.drawing = False  # Continue drawing
             else: 
                 QMessageBox.critical(self.iface.mainWindow(), "Error", "Щоб зберегти об'єкт створіть скетч")
@@ -80,7 +78,7 @@ class PerpendicularPolygonTool(QgsMapTool):
         def create_point(point):
             qgs_point = QgsPointXY(point[0], point[1])
             self.sketch.vertices.append(self.snap_ortho(qgs_point))
-            self.createPerpendicularPolygon()
+            self.sketch.copmlate_polygon(self.sketch.vertices)
             self.drawing = False
         if (event.key() == 67 or event.key() == 1057) and len(self.sketch.vertices) > 1: 
             point = self.vector.get_projectpoint(self.sketch.vertices)
@@ -112,23 +110,3 @@ class PerpendicularPolygonTool(QgsMapTool):
         proj_length = (point.x() - last_point.x()) * perp_vector[0] + (point.y() - last_point.y()) * perp_vector[1]
         proj_point = QgsPointXY(last_point.x() + proj_length * perp_vector[0], last_point.y() + proj_length * perp_vector[1])
         return proj_point
-
-    
-    def createPerpendicularPolygon(self):
-        if len(self.sketch.vertices) <= 2:
-            QMessageBox.critical(self.iface.mainWindow(), "Error", "Please define at least two points.")
-            self.sketch.clear_sketch()
-            return
-
-        layer = self.iface.activeLayer()
-        if not layer or layer.geometryType() != QgsWkbTypes.PolygonGeometry:
-            QMessageBox.critical(self.iface.mainWindow(), "Error", "Please select a polygon layer to sketch.")
-            self.sketch.clear_sketch()
-            return
-
-        layer.startEditing()
-        feature = QgsFeature()
-        feature.setGeometry(QgsGeometry.fromPolygonXY([self.sketch.vertices]))
-        layer.addFeature(feature)
-        self.sketch.clear_sketch()
-       

@@ -2,8 +2,10 @@ from qgis.gui import QgsRubberBand
 from qgis.PyQt.QtGui import QColor
 from qgis.core import (
     QgsWkbTypes,
-    QgsGeometry 
+    QgsGeometry,
+    QgsFeature
 )
+from qgis.PyQt.QtWidgets import QMessageBox
 
 class SketchPolygonShape:
     def __init__(self, canvas, iface):
@@ -29,3 +31,21 @@ class SketchPolygonShape:
         if len(temp_vertices) > 1:
             # Draw the line from the first to the last vertex
            self.rubber_band.setToGeometry(QgsGeometry.fromPolygonXY([temp_vertices]), None)
+
+    def copmlate_polygon(self, vertices):
+        if len(vertices) <= 2:
+            QMessageBox.critical(self.iface.mainWindow(), "Error", "Please define at least two points.")
+            self.clear_sketch()
+            return
+
+        layer = self.iface.activeLayer()
+        if not layer or layer.geometryType() != QgsWkbTypes.PolygonGeometry:
+            QMessageBox.critical(self.iface.mainWindow(), "Error", "Please select a polygon layer to sketch.")
+            self.clear_sketch()
+            return
+
+        layer.startEditing()
+        feature = QgsFeature()
+        feature.setGeometry(QgsGeometry.fromPolygonXY([vertices]))
+        layer.addFeature(feature)
+        self.clear_sketch()
