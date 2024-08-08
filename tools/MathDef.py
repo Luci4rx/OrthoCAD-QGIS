@@ -1,5 +1,6 @@
 import numpy as np
 from qgis.PyQt.QtGui import QCursor
+
 class Vector:
     def get_vector_ort(self, p1, p2):
         # Координати точок
@@ -69,13 +70,22 @@ class Vector:
         point = self.line_intersection((vertices[-1].x(), vertices[-1].y()), ort_1[0], (vertices[0].x(), vertices[0].y()), ort_2[0])
         return point
     
-
-
-
+    def rectangle_diagonal(self, line, vertices):
+        x1, y1 = line[0][0], line[0][1]
+        x2, y2 = line[1][0], line[1][1]
+        direction_x = x2 - x1
+        direction_y = y2 - y1
+        length_direction = (direction_x**2 + direction_y**2) ** 0.5
+        norm_direction_x = direction_x / length_direction
+        norm_direction_y = direction_y / length_direction
+        parallel_point_end = (vertices[0].x() + norm_direction_x * 1, vertices[0].y()  + norm_direction_y * 1)
+        line_par = (vertices[0].x(), vertices[0].y()), parallel_point_end
+        ort_2 = self.get_vector_ort((line_par[0][0], line_par[0][1]), (line_par[1][0], line_par[1][1]))
+        point_int = self.line_intersection(ort_2[0], ort_2[1], line[0], line[1])
+        return point_int
 
 def cursor_position(canvas):
         global_pos = QCursor.pos()
         screen_pos = canvas.mapFromGlobal(global_pos)
         map_point = canvas.getCoordinateTransform().toMapCoordinates(screen_pos)
-        print(map_point)
         return map_point

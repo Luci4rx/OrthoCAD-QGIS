@@ -1,13 +1,14 @@
 from pathlib import Path
 from qgis.core import (
-    QgsSettings, 
+    QgsSettings
 )
 from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import QCoreApplication, QLocale, QTranslator
-from qgis.PyQt.QtGui import QIcon
+from qgis.PyQt.QtGui import QIcon, QKeySequence
 from qgis.PyQt.QtWidgets import QAction
 from .tools import PerpendicularPolygonTool
 from .resources import *
+from PyQt5 import QtWidgets, Qt
 
 ########### Orthocad Plugin Main Class ###############
 class OrthocadPlugin:
@@ -23,6 +24,7 @@ class OrthocadPlugin:
             self.translator.load(str(locale_path.resolve()))
             QCoreApplication.installTranslator(self.translator)
 
+
     def initGui(self):
         self.toolbar = self.iface.addToolBar("OrthoCAD-Tool")
         self.action_perpendicular = QAction(
@@ -33,7 +35,7 @@ class OrthocadPlugin:
         self.action_perpendicular.triggered.connect(self.toggle_ortho_tool)
         self.toolbar.addAction(self.action_perpendicular)
         self.action_perpendicular.setCheckable(True)
-      
+        self.action_perpendicular.setShortcut(QKeySequence("Q"))
 
     def toggle_ortho_tool(self):
         if self.tool:

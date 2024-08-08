@@ -3,7 +3,8 @@ from qgis.PyQt.QtGui import QColor
 from qgis.core import (
     QgsWkbTypes,
     QgsGeometry,
-    QgsFeature
+    QgsFeature,
+    QgsMapLayer
 )
 from qgis.PyQt.QtWidgets import QMessageBox
 
@@ -38,8 +39,9 @@ class SketchPolygonShape:
             self.clear_sketch()
             return
 
-        layer = self.iface.activeLayer()
-        if not layer or layer.geometryType() != QgsWkbTypes.PolygonGeometry:
+        layer = self.iface.activeLayer() 
+        if not layer or (layer.type() == QgsMapLayer.RasterLayer or layer.geometryType() != QgsWkbTypes.PolygonGeometry):
+            
             QMessageBox.critical(self.iface.mainWindow(), "Error", "Please select a polygon layer to sketch.")
             self.clear_sketch()
             return
