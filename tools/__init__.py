@@ -1,3 +1,3 @@
 from .tTools import *
 
-__all__ = ['tTools']
+__all__ = ['tTools', 'tSnap']

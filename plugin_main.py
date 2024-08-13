@@ -9,6 +9,8 @@ from qgis.PyQt.QtWidgets import QAction
 from .tools import PerpendicularPolygonTool
 from .resources import *
 from PyQt5 import QtWidgets, Qt
+from qgis.gui import QgsVertexMarker
+
 
 ########### Orthocad Plugin Main Class ###############
 class OrthocadPlugin:
@@ -39,6 +41,7 @@ class OrthocadPlugin:
 
     def toggle_ortho_tool(self):
         if self.tool:
+            self.reset()
             self.tool.sketch.clear_sketch()
             self.iface.mapCanvas().unsetMapTool(self.tool)
             self.tool = None
@@ -60,10 +63,16 @@ class OrthocadPlugin:
         return QCoreApplication.translate(self.__class__.__name__, message)
 
     def unload(self):
+        self.reset()
         self.tool = PerpendicularPolygonTool(self.iface.mapCanvas(), self.iface)
         self.tool.sketch.clear_sketch()
         self.iface.removePluginMenu("Orthocad", self.action_perpendicular)
         if self.tool:
             self.iface.mapCanvas().unsetMapTool(self.tool)
 
+    def reset(self):
+        vertex_items = [ i for i in self.iface.mapCanvas().scene().items() if issubclass(type(i), QgsVertexMarker)]
+        for ver in vertex_items:
+            if ver in self.iface.mapCanvas().scene().items():
+                self.iface.mapCanvas().scene().removeItem(ver)
 

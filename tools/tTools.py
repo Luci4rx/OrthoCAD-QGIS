@@ -2,7 +2,7 @@ import math
 from qgis.PyQt.QtCore import Qt
 from qgis.core import (
     QgsPointXY,
-    QgsSpatialIndex,
+    QgsSpatialIndex
 )
 from qgis.gui import QgsMapTool, QgsVertexMarker, QgsMapToolEmitPoint
 from qgis.PyQt.QtGui import QKeyEvent
@@ -11,6 +11,7 @@ from qgis.PyQt.QtWidgets import QMessageBox
 from .MathDef import Vector, cursor_position
 from .tSketch import SketchPolygonShape
 from .tSnap import SnapTool
+from .tSonar import FeatureCreatedHandler
 
 class PerpendicularPolygonTool(QgsMapTool):
     def __init__(self, canvas, iface):
@@ -22,10 +23,10 @@ class PerpendicularPolygonTool(QgsMapTool):
         self.vector = Vector()
         self.sketch = SketchPolygonShape(self.iface.mapCanvas(), self.iface)
         self.snap = SnapTool(self.iface.mapCanvas(), self.iface)
-        self.index = None
+        self.index = QgsSpatialIndex(self.iface.activeLayer())
+        self.handler = FeatureCreatedHandler(self.iface.activeLayer())
 
     def canvasMoveEvent(self, event):
-        self.index = QgsSpatialIndex(self.iface.activeLayer())
         coord = self.toMapCoordinates(event.pos())
         self.snap.snap_mark.hide()
         self.snapPoint = False
@@ -70,14 +71,14 @@ class PerpendicularPolygonTool(QgsMapTool):
         elif event.button() == 2:
             if len(self.sketch.vertices) > 1:
                 self.sketch.last_line = (self.sketch.vertices[-2], self.sketch.vertices[-1])
-                self.sketch.copmlate_polygon(self.sketch.vertices)
+                self.sketch.complete_polygon(self.sketch.vertices, self.index)
                 self.drawing = False  # Continue drawing
             else: 
                 QMessageBox.critical(self.iface.mainWindow(), "Error", "Щоб зберегти об'єкт створіть скетч")
     
     
     def keyPressEvent(self, event: QKeyEvent):
-        if (event.key() == 69 or event.key() == 1059) and len(self.sketch.vertices) == 1: 
+        if (event.key() == Qt.Key_E) and len(self.sketch.vertices) == 1: 
             point = self.snap.snap_parallel(cursor_position(self.canvas), self.sketch.vertices,  self.index)
             qgs_point = QgsPointXY(point[0], point[1])
             self.sketch.vertices.append(qgs_point)
@@ -90,9 +91,9 @@ class PerpendicularPolygonTool(QgsMapTool):
         def create_point(point):
             qgs_point = QgsPointXY(point[0], point[1])
             self.sketch.vertices.append(self.snap_ortho(qgs_point))
-            self.sketch.copmlate_polygon(self.sketch.vertices)
+            self.sketch.complete_polygon(self.sketch.vertices, self.index)   
             self.drawing = False
-        if (event.key() == 1062 or event.key() == 87) and len(self.sketch.vertices) > 1: 
+        if (event.key() == Qt.Key_W) and len(self.sketch.vertices) > 1: 
             point = self.vector.get_projectpoint(self.sketch.vertices)
             if len(self.sketch.vertices) > 2 and point != False: 
                 create_point(point)

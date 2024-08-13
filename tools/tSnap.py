@@ -20,7 +20,6 @@ class SnapTool:
         self.vector = Vector()
 
     def check_snap(self, point, vertices):
-        snapped = False
         try:
             snap_point = self.canvas.getCoordinateTransform().toMapCoordinates(point) 
         except:
@@ -28,6 +27,7 @@ class SnapTool:
         snapper = self.canvas.snappingUtils()
         snap_match = snapper.snapToMap(snap_point)
         snap_type = None
+        snapped = False
         # Перевірка прив'язки до вершин
         if snap_match.hasVertex():
             snap_point = snap_match.point()
@@ -51,6 +51,7 @@ class SnapTool:
                 snap_type = 1
         return snapped, snap_point, snap_type
     
+    
     def snap_parallel(self, pos, vertices, index):
         point_qgs = self.check_snap(pos, vertices)[1]
         nearest_ids = index.nearestNeighbor(point_qgs, 1)  # Знаходження найближчого об'єкта
@@ -60,14 +61,21 @@ class SnapTool:
         geom = obj.geometry()
         closest_side = None
         min_dist = float('inf')
-        if geom.type() == QgsWkbTypes.PolygonGeometry:
+        polygon = None
+        layer = self.iface.activeLayer()
+        if layer.wkbType() == QgsWkbTypes.Polygon:
             polygon = geom.asPolygon()[0]
-            for i in range(len(polygon) - 1):
-                line = QgsGeometry.fromPolylineXY([polygon[i], polygon[i + 1]])
-                dist = line.distance(QgsGeometry.fromPointXY(point_qgs))
-                if dist < min_dist:
-                    min_dist = dist
-                    closest_side = line
+        elif layer.wkbType() == QgsWkbTypes.MultiPolygon or QgsWkbTypes.MultiPolygonZ or QgsWkbTypes.PolygonZ:
+            polygons = geom.asMultiPolygon()
+            first_polygon = polygons[0]
+            polygon_geom = QgsGeometry.fromPolygonXY(first_polygon)
+            polygon = polygon_geom.asPolygon()[0]
+        for i in range(len(polygon) - 1):
+            line = QgsGeometry.fromPolylineXY([polygon[i], polygon[i + 1]])
+            dist = line.distance(QgsGeometry.fromPointXY(point_qgs))
+            if dist < min_dist:
+                min_dist = dist
+                closest_side = line
         points = closest_side.asPolyline()
         pintsList = []
         for point in points:
