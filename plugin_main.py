@@ -6,18 +6,22 @@ from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import QCoreApplication, QLocale, QTranslator
 from qgis.PyQt.QtGui import QIcon, QKeySequence
 from qgis.PyQt.QtWidgets import QAction
-from .tools import PerpendicularPolygonTool
+from .tools import (PerpendicularPolygonTool, 
+                    SonarHandler,  
+                    SemanticEditor)
 from .resources import *
 from PyQt5 import QtWidgets, Qt
 from qgis.gui import QgsVertexMarker
 
 
 ########### Orthocad Plugin Main Class ###############
-class OrthocadPlugin:
+class OrthocadPlugin():
     def __init__(self, iface: QgisInterface):
         self.iface = iface
         self.tool = None
+        self.sonar = None
         self.setup_signals()
+
         
         self.locale = QgsSettings().value("locale/userLocale", QLocale().name())[0:2]
         locale_path = Path(__file__).parent / "i18n" / f"orthocad_{self.locale}.qm"
@@ -25,8 +29,7 @@ class OrthocadPlugin:
             self.translator = QTranslator()
             self.translator.load(str(locale_path.resolve()))
             QCoreApplication.installTranslator(self.translator)
-
-
+        
     def initGui(self):
         self.toolbar = self.iface.addToolBar("OrthoCAD-Tool")
         self.action_perpendicular = QAction(
@@ -34,10 +37,38 @@ class OrthocadPlugin:
             'Otho Tool',
             self.iface.mainWindow(),
         )
+        self.sonar_tool = QAction(
+            QIcon(':/plugins/Qorthocad/icons/sonar.svg'),
+            'Sonar',
+            self.iface.mainWindow(),
+        )
+        self.toolbar.addAction(self.sonar_tool)
+        self.sonar_tool.setCheckable(True)
         self.action_perpendicular.triggered.connect(self.toggle_ortho_tool)
+        self.sonar_tool.triggered.connect(self.toggle_sonar)
         self.toolbar.addAction(self.action_perpendicular)
         self.action_perpendicular.setCheckable(True)
         self.action_perpendicular.setShortcut(QKeySequence("Q"))
+        self.startEditSemantic = QAction("Semantic", self.iface.mainWindow())
+        self.toolbar.addAction(self.startEditSemantic)
+        self.startEditSemantic.setShortcut(QKeySequence("Space"))
+        self.startEditSemantic.triggered.connect(self.show_semantic_edit)
+
+    def show_semantic_edit(self):
+        print(self.tr('Будівля'))
+        
+        dialog = SemanticEditor()
+        if dialog.exec_():
+            text = dialog.get_text()
+            print(f"Введений текст: {text}")
+
+    def toggle_sonar(self):
+        if self.sonar:
+            self.sonar = None
+            self.sonar_tool.setChecked(False)
+        else:
+            self.sonar = SonarHandler(self.iface.activeLayer(), self.iface.mapCanvas())  
+            self.sonar_tool.setChecked(True)
 
     def toggle_ortho_tool(self):
         if self.tool:
@@ -47,6 +78,7 @@ class OrthocadPlugin:
             self.tool = None
             self.action_perpendicular.setChecked(False)
         else:
+            self.reset()
             self.tool = PerpendicularPolygonTool(self.iface.mapCanvas(), self.iface)
             self.iface.mapCanvas().setMapTool(self.tool)
             self.action_perpendicular.setChecked(True)
@@ -55,6 +87,7 @@ class OrthocadPlugin:
         self.iface.mapCanvas().mapToolSet.connect(self.on_map_tool_set)
     
     def on_map_tool_set(self, tool):
+        self.reset()
         if tool != self.tool:
             self.tool = None
             self.action_perpendicular.setChecked(False)

@@ -1,12 +1,10 @@
-
 from qgis.core import (
     QgsGeometry,
     QgsWkbTypes
 )
-
 from qgis.gui import QgsVertexMarker
 from qgis.PyQt.QtGui import QColor
-from .MathDef import Vector
+from .tMathDef import Vector
 
 
 class SnapTool:

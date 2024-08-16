@@ -1,5 +1,6 @@
 <RCC>
     <qresource prefix="/plugins/Qorthocad" >
         <file>icons/orthotool.svg</file>
+		<file>icons/sonar.svg</file>
     </qresource>
 </RCC>

@@ -8,10 +8,10 @@ from qgis.gui import QgsMapTool, QgsVertexMarker, QgsMapToolEmitPoint
 from qgis.PyQt.QtGui import QKeyEvent
 from qgis.PyQt.QtWidgets import QMessageBox
 
-from .MathDef import Vector, cursor_position
+from .tMathDef import Vector, cursor_position
 from .tSketch import SketchPolygonShape
 from .tSnap import SnapTool
-from .tSonar import FeatureCreatedHandler
+
 
 class PerpendicularPolygonTool(QgsMapTool):
     def __init__(self, canvas, iface):
@@ -24,7 +24,8 @@ class PerpendicularPolygonTool(QgsMapTool):
         self.sketch = SketchPolygonShape(self.iface.mapCanvas(), self.iface)
         self.snap = SnapTool(self.iface.mapCanvas(), self.iface)
         self.index = QgsSpatialIndex(self.iface.activeLayer())
-        self.handler = FeatureCreatedHandler(self.iface.activeLayer())
+        
+        
 
     def canvasMoveEvent(self, event):
         coord = self.toMapCoordinates(event.pos())

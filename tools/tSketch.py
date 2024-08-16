@@ -1,4 +1,4 @@
-from qgis.gui import QgsRubberBand, QtCore
+from qgis.gui import QgsRubberBand
 from qgis.PyQt.QtGui import QColor
 from qgis.core import (
     QgsWkbTypes,
@@ -8,6 +8,7 @@ from qgis.core import (
     QgsPointXY
 )
 from qgis.PyQt.QtWidgets import QMessageBox
+
 
 class SketchPolygonShape:
     def __init__(self, canvas, iface):
@@ -19,20 +20,19 @@ class SketchPolygonShape:
         self.rubber_band.setWidth(2)
         self.last_line = None
         self.geometry = None
+        
 
     def clear_sketch(self):
         self.vertices = []
-        self.rubber_band.reset()  # Clear the rubber band
-        self.drawing = False  # Ensure drawing is stopped
+        self.rubber_band.reset()
+        self.drawing = False
 
     def update_sketch(self, temp_vertices=None):
-        # self.rubber_band.reset()
         if not self.vertices:
             return
         if temp_vertices is None:
             temp_vertices = self.vertices.copy()
         if len(temp_vertices) > 1:
-            # Draw the line from the first to the last vertex
            self.rubber_band.setToGeometry(QgsGeometry.fromPolygonXY([temp_vertices]), None)
 
     def complete_polygon(self, vertices, index):
@@ -51,9 +51,7 @@ class SketchPolygonShape:
         layer.startEditing()
         feature = QgsFeature(layer.fields())
 
-        # Check if layer supports MultiPolygonZ
         if layer.wkbType() == QgsWkbTypes.MultiPolygonZ:
-            # Create 3D point sequence
             point_sequence = []
             for vertex in vertices:
                 point_sequence.append(QgsPointXY(vertex.x(), vertex.y()))  # Replace 0 with the desired Z value
@@ -63,10 +61,6 @@ class SketchPolygonShape:
             self.geometry =  QgsGeometry.fromPolygonXY([vertices])
             feature.setGeometry(self.geometry)
             
-            
         layer.addFeature(feature)
         index.insertFeature(feature)
-        layer.updateExtents()
-        layer.updateFields()
-        layer.triggerRepaint()
         self.clear_sketch()
