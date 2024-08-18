@@ -1,7 +1,7 @@
 from qgis.core import QgsPointXY, QgsWkbTypes
 from qgis.PyQt.QtCore import QObject
 from qgis.gui import QgsRubberBand
-from PyQt5.QtCore import QObject, QPoint
+from PyQt5.QtCore import QObject
 from PyQt5.QtGui import QColor
 from qgis.core import QgsPointXY, QgsSpatialIndex
 

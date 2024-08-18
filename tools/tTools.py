@@ -13,6 +13,8 @@ from .tSketch import SketchPolygonShape
 from .tSnap import SnapTool
 
 
+
+
 class PerpendicularPolygonTool(QgsMapTool):
     def __init__(self, canvas, iface):
         QgsMapToolEmitPoint.__init__(self, canvas)
@@ -129,3 +131,6 @@ class PerpendicularPolygonTool(QgsMapTool):
             proj_length = (point.x() - last_point.x()) * perp_vector[0] + (point.y() - last_point.y()) * perp_vector[1]
             proj_point = QgsPointXY(last_point.x() + proj_length * perp_vector[0], last_point.y() + proj_length * perp_vector[1])
             return proj_point
+        
+    def hide_snap_mark(self):
+        self.snap.snap_mark.hide()

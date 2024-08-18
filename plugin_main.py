@@ -1,6 +1,8 @@
 from pathlib import Path
 from qgis.core import (
-    QgsSettings
+    QgsSettings,
+    QgsMapLayer,
+    QgsWkbTypes
 )
 from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import QCoreApplication, QLocale, QTranslator
@@ -11,7 +13,6 @@ from .tools import (PerpendicularPolygonTool,
                     SemanticEditor)
 from .resources import *
 from PyQt5 import QtWidgets, Qt
-from qgis.gui import QgsVertexMarker
 
 
 ########### Orthocad Plugin Main Class ###############
@@ -53,16 +54,17 @@ class OrthocadPlugin():
         self.toolbar.addAction(self.startEditSemantic)
         self.startEditSemantic.setShortcut(QKeySequence("Space"))
         self.startEditSemantic.triggered.connect(self.show_semantic_edit)
+        self.action_perpendicular.setEnabled(False)
+        self.iface.currentLayerChanged.connect(self.update_action_status)
 
     def show_semantic_edit(self):
-        print(self.tr('Будівля'))
-        
         dialog = SemanticEditor()
         if dialog.exec_():
             text = dialog.get_text()
             print(f"Введений текст: {text}")
 
     def toggle_sonar(self):
+        
         if self.sonar:
             self.sonar = None
             self.sonar_tool.setChecked(False)
@@ -71,14 +73,14 @@ class OrthocadPlugin():
             self.sonar_tool.setChecked(True)
 
     def toggle_ortho_tool(self):
+        
         if self.tool:
-            self.reset()
+            self.tool.hide_snap_mark()
             self.tool.sketch.clear_sketch()
             self.iface.mapCanvas().unsetMapTool(self.tool)
             self.tool = None
             self.action_perpendicular.setChecked(False)
         else:
-            self.reset()
             self.tool = PerpendicularPolygonTool(self.iface.mapCanvas(), self.iface)
             self.iface.mapCanvas().setMapTool(self.tool)
             self.action_perpendicular.setChecked(True)
@@ -87,7 +89,6 @@ class OrthocadPlugin():
         self.iface.mapCanvas().mapToolSet.connect(self.on_map_tool_set)
     
     def on_map_tool_set(self, tool):
-        self.reset()
         if tool != self.tool:
             self.tool = None
             self.action_perpendicular.setChecked(False)
@@ -96,16 +97,11 @@ class OrthocadPlugin():
         return QCoreApplication.translate(self.__class__.__name__, message)
 
     def unload(self):
-        self.reset()
-        self.tool = PerpendicularPolygonTool(self.iface.mapCanvas(), self.iface)
-        self.tool.sketch.clear_sketch()
         self.iface.removePluginMenu("Orthocad", self.action_perpendicular)
-        if self.tool:
-            self.iface.mapCanvas().unsetMapTool(self.tool)
-
-    def reset(self):
-        vertex_items = [ i for i in self.iface.mapCanvas().scene().items() if issubclass(type(i), QgsVertexMarker)]
-        for ver in vertex_items:
-            if ver in self.iface.mapCanvas().scene().items():
-                self.iface.mapCanvas().scene().removeItem(ver)
-
+        
+    def update_action_status(self):
+        layer = self.iface.activeLayer()
+        if layer and layer.type() == QgsMapLayer.VectorLayer and layer.geometryType() == QgsWkbTypes.PolygonGeometry:
+            self.action_perpendicular.setEnabled(True)
+        else:
+            self.action_perpendicular.setEnabled(False)
