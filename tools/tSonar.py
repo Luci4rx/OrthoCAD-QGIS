@@ -17,7 +17,6 @@ class SonarHandler(QObject):
 
 
     def on_feature(self, fid):
-        print('sadsa')
         feature = self.layer.getFeature(fid)
         geom = feature.geometry()
         if feature and feature.id() != self.flag:

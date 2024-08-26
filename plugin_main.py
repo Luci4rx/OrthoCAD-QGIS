@@ -8,9 +8,8 @@ from qgis.gui import QgisInterface
 from qgis.PyQt.QtCore import QCoreApplication, QLocale, QTranslator
 from qgis.PyQt.QtGui import QIcon, QKeySequence
 from qgis.PyQt.QtWidgets import QAction
-from .tools import (PerpendicularPolygonTool, 
-                    SonarHandler,  
-                    SemanticEditor)
+from .tools import PerpendicularPolygonTool, SonarHandler, CircleVertexMerge
+                    
 from .resources import *
 from PyQt5 import QtWidgets, Qt
 
@@ -21,6 +20,7 @@ class OrthocadPlugin():
         self.iface = iface
         self.tool = None
         self.sonar = None
+        self.vertexMerge = None
         self.setup_signals()
 
         
@@ -43,25 +43,26 @@ class OrthocadPlugin():
             'Sonar',
             self.iface.mainWindow(),
         )
+
+        self.vertexMergeAction = QAction(
+            'Vertex Merge',
+            self.iface.mainWindow(),
+        )
+
         self.toolbar.addAction(self.sonar_tool)
         self.sonar_tool.setCheckable(True)
-        self.action_perpendicular.triggered.connect(self.toggle_ortho_tool)
         self.sonar_tool.triggered.connect(self.toggle_sonar)
+
+        self.action_perpendicular.triggered.connect(self.toggle_ortho_tool)
         self.toolbar.addAction(self.action_perpendicular)
         self.action_perpendicular.setCheckable(True)
         self.action_perpendicular.setShortcut(QKeySequence("Q"))
-        self.startEditSemantic = QAction("Semantic", self.iface.mainWindow())
-        self.toolbar.addAction(self.startEditSemantic)
-        self.startEditSemantic.setShortcut(QKeySequence("Space"))
-        self.startEditSemantic.triggered.connect(self.show_semantic_edit)
         self.action_perpendicular.setEnabled(False)
         self.iface.currentLayerChanged.connect(self.update_action_status)
 
-    def show_semantic_edit(self):
-        dialog = SemanticEditor()
-        if dialog.exec_():
-            text = dialog.get_text()
-            print(f"Введений текст: {text}")
+        self.toolbar.addAction(self.vertexMergeAction)
+        self.vertexMergeAction.setCheckable(True)
+        self.vertexMergeAction.triggered.connect(self.toggle_vertexMerge)
 
     def toggle_sonar(self):
         
@@ -71,6 +72,16 @@ class OrthocadPlugin():
         else:
             self.sonar = SonarHandler(self.iface.activeLayer(), self.iface.mapCanvas())  
             self.sonar_tool.setChecked(True)
+
+    def toggle_vertexMerge(self):
+        if self.vertexMerge:
+            self.iface.mapCanvas().unsetMapTool(self.vertexMerge)
+            self.vertexMerge = None
+            self.vertexMergeAction.setChecked(False)
+        else:
+            self.vertexMerge = CircleVertexMerge(self.iface.mapCanvas(), self.iface)
+            self.iface.mapCanvas().setMapTool(self.vertexMerge)
+            self.vertexMergeAction.setChecked(True)
 
     def toggle_ortho_tool(self):
         
@@ -89,9 +100,13 @@ class OrthocadPlugin():
         self.iface.mapCanvas().mapToolSet.connect(self.on_map_tool_set)
     
     def on_map_tool_set(self, tool):
+        if self.tool:
+            self.tool.hide_snap_mark()
+            self.tool.sketch.clear_sketch()
         if tool != self.tool:
             self.tool = None
             self.action_perpendicular.setChecked(False)
+        
 
     def tr(self, message: str) -> str:
         return QCoreApplication.translate(self.__class__.__name__, message)

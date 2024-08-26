@@ -20,6 +20,7 @@ class SnapTool:
     def check_snap(self, point, vertices):
         try:
             snap_point = self.canvas.getCoordinateTransform().toMapCoordinates(point) 
+            
         except:
             snap_point = point
         snapper = self.canvas.snappingUtils()
